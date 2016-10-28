@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.stc.firebase.android.chat;
+package com.stc.firebase.android.chat.ui;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,6 +24,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.google.android.gms.auth.api.Auth;
@@ -45,12 +46,13 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.stc.firebase.android.chat.R;
 import com.stc.firebase.android.chat.model.User;
 
-import static com.stc.firebase.android.chat.model.Constants.FIELD_DB_TOKEN;
-import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_TOKEN;
-import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_UID;
-import static com.stc.firebase.android.chat.model.Constants.TABLE_DB_USERS;
+import static com.stc.firebase.android.chat.Constants.FIELD_DB_TOKEN;
+import static com.stc.firebase.android.chat.Constants.SETTINGS_DB_TOKEN;
+import static com.stc.firebase.android.chat.Constants.SETTINGS_DB_UID;
+import static com.stc.firebase.android.chat.Constants.TABLE_DB_USERS;
 
 public class SignInActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener,
         View.OnClickListener {
@@ -58,6 +60,7 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
     private static final String TAG = "SignInActivity";
     private static final int RC_SIGN_IN = 9001;
     private SignInButton mSignInButton;
+	private ProgressBar mProgressBar;
 
     private GoogleApiClient mGoogleApiClient;
     private FirebaseAuth mFirebaseAuth;
@@ -70,10 +73,11 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
         setContentView(R.layout.activity_sign_in);
 		prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
-        // Assign fields
-        mSignInButton = (SignInButton) findViewById(R.id.sign_in_button);
+		mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
+		mSignInButton = (SignInButton) findViewById(R.id.sign_in_button);
 
-        // Set click listeners
+		mProgressBar.setVisibility(View.VISIBLE);
+		mSignInButton.setVisibility(View.GONE);
         mSignInButton.setOnClickListener(this);
 
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -81,24 +85,16 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
                 .requestEmail()
                 .build();
         mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .enableAutoManage(this /* FragmentActivity */, this /* OnConnectionFailedListener */)
+                .enableAutoManage(this, this )
                 .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
                 .build();
 
-        // Initialize FirebaseAuth
         mFirebaseAuth = FirebaseAuth.getInstance();
+		mProgressBar.setVisibility(View.GONE);
+		mSignInButton.setVisibility(View.VISIBLE);
     }
 
-    private void handleFirebaseAuthResult(AuthResult authResult) {
-        if (authResult != null) {
-            // Welcome the user
-            FirebaseUser user = authResult.getUser();
-            Toast.makeText(this, "Welcome " + user.getEmail(), Toast.LENGTH_SHORT).show();
 
-            // Go back to the main activity
-            startActivity(new Intent(this, MainActivity.class));
-        }
-    }
 
     @Override
     public void onClick(View v) {
@@ -106,13 +102,13 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
             case R.id.sign_in_button:
                 signIn();
                 break;
-            default:
-                return;
         }
     }
 
     private void signIn() {
-        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
+	    mProgressBar.setVisibility(View.VISIBLE);
+	    mSignInButton.setVisibility(View.GONE);
+	    Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
         startActivityForResult(signInIntent, RC_SIGN_IN);
     }
 
@@ -168,7 +164,7 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
 			mFirebaseDatabaseReference.child(TABLE_DB_USERS).addListenerForSingleValueEvent(new ValueEventListener() {
 				@Override
 				public void onDataChange(DataSnapshot dataSnapshot) {
-					User user;
+					User user=null;
 					boolean exists=false;
 					String key=null;
 
@@ -183,12 +179,16 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
 					if(!exists) {
 						createUser();
 					}else
-						saveUidToPrefs(key);
+						saveUidToPrefs(key,user.getName());
 				}
 
 				@Override
 				public void onCancelled(DatabaseError databaseError) {
-
+					prefs.edit().putString(SETTINGS_DB_UID, null).apply();
+					Toast.makeText(SignInActivity.this, "CANCELLED", Toast.LENGTH_SHORT).show();
+					mProgressBar.setVisibility(View.GONE);
+					mSignInButton.setVisibility(View.VISIBLE);
+					Log.e(TAG, "onCancelled");
 				}
 			});
 		}
@@ -196,29 +196,34 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
 
 
 	}
-	private void saveUidToPrefs(String uId) {
-
+	private void saveUidToPrefs(String uId, String username) {
 		Log.w("TAG", "new uid to save: "+uId);
-		prefs.edit().putString(SETTINGS_DB_UID, uId).commit();
+		prefs.edit().putString(SETTINGS_DB_UID, uId).apply();
 		if(prefs.getString(SETTINGS_DB_TOKEN, null)!=null) {
 			Log.w("TAG", "SETTINGS_DB_TOKEN: "+prefs.getString(SETTINGS_DB_TOKEN, null));
 			mFirebaseDatabaseReference.child(TABLE_DB_USERS).child(uId).child(FIELD_DB_TOKEN).setValue(prefs.getString(SETTINGS_DB_TOKEN, null));
 		}else Log.e("SignIn", "TOKEN NOT FOUND");
+		Toast.makeText(this, "Welcome " + username, Toast.LENGTH_SHORT).show();
+		mProgressBar.setVisibility(View.GONE);
+		mSignInButton.setVisibility(View.VISIBLE);
 		startActivity(new Intent(SignInActivity.this, MainActivity.class));
 		finish();
 	}
 
+
 	private void createUser() {
 		FirebaseUser firebaseUser = mFirebaseAuth.getCurrentUser();
 		String photoUrl="";
-		if(firebaseUser!=null && firebaseUser.getPhotoUrl()!=null)
-			photoUrl=firebaseUser.getPhotoUrl().toString();
-		String key=mFirebaseDatabaseReference.child(TABLE_DB_USERS).push().getKey();
+		if(firebaseUser!=null){
+			if(firebaseUser.getPhotoUrl()!=null)
+				photoUrl=firebaseUser.getPhotoUrl().toString();
+			String key=mFirebaseDatabaseReference.child(TABLE_DB_USERS).push().getKey();
 
 
-		User user=new User(key,firebaseUser.getDisplayName(), photoUrl,firebaseUser.getEmail());
-		mFirebaseDatabaseReference.child(TABLE_DB_USERS).child(key).setValue(user);
-		saveUidToPrefs(key);
+			User user=new User(key,firebaseUser.getDisplayName(), photoUrl,firebaseUser.getEmail());
+			mFirebaseDatabaseReference.child(TABLE_DB_USERS).child(key).setValue(user);
+			saveUidToPrefs(key, firebaseUser.getDisplayName());
+		}else Log.e(TAG, "createUser: ERROR");
 	}
 
 
@@ -228,6 +233,8 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
         // be available.
         Log.d(TAG, "onConnectionFailed:" + connectionResult);
         Toast.makeText(this, "Google Play Services error.", Toast.LENGTH_SHORT).show();
+		mProgressBar.setVisibility(View.GONE);
+		mSignInButton.setVisibility(View.VISIBLE);
     }
 
 }

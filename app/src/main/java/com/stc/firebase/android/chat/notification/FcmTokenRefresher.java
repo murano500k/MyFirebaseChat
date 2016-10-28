@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.stc.firebase.android.chat;
+package com.stc.firebase.android.chat.notification;
 
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
@@ -25,12 +25,12 @@ import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.FirebaseInstanceIdService;
 import com.google.firebase.messaging.FirebaseMessaging;
 
-import static com.stc.firebase.android.chat.model.Constants.FIELD_DB_TOKEN;
-import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_TOKEN;
-import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_UID;
-import static com.stc.firebase.android.chat.model.Constants.TABLE_DB_USERS;
+import static com.stc.firebase.android.chat.Constants.FIELD_DB_TOKEN;
+import static com.stc.firebase.android.chat.Constants.SETTINGS_DB_TOKEN;
+import static com.stc.firebase.android.chat.Constants.SETTINGS_DB_UID;
+import static com.stc.firebase.android.chat.Constants.TABLE_DB_USERS;
 
-public class MyFirebaseInstanceIdService extends FirebaseInstanceIdService {
+public class FcmTokenRefresher extends FirebaseInstanceIdService {
 
     private static final String TAG = "MyFirebaseIIDService";
     private static final String FRIENDLY_ENGAGE_TOPIC = "friendly_engage";
@@ -49,14 +49,14 @@ public class MyFirebaseInstanceIdService extends FirebaseInstanceIdService {
         String token = FirebaseInstanceId.getInstance().getToken();
         Log.d(TAG, "FCM Token: " + token);
 	    mSharedPreferences.edit().putString(SETTINGS_DB_TOKEN, token).apply();
-	    if(mSharedPreferences.getString(SETTINGS_DB_UID,null)!=null){
+	    String uId =mSharedPreferences.getString(SETTINGS_DB_UID,null);
+	    if(uId!=null){
 		    DatabaseReference databaseReference= FirebaseDatabase.getInstance().getReference();
-		    databaseReference.child(TABLE_DB_USERS).child(mSharedPreferences.getString(SETTINGS_DB_UID,null)).child(FIELD_DB_TOKEN).setValue(token);
-		    Log.e(TAG, "FCM Token: saved" );
+		    databaseReference.child(TABLE_DB_USERS).child(uId).child(FIELD_DB_TOKEN).setValue(token);
+		    Log.d(TAG, "FCM Token saved: "+token );
 
 	    }else {
-		    Log.e(TAG, "FCM Token: not saved" );
-
+		    Log.e(TAG, "FCM Token not saved:" +token);
 	    }
 
 	    FirebaseMessaging.getInstance().subscribeToTopic(FRIENDLY_ENGAGE_TOPIC);

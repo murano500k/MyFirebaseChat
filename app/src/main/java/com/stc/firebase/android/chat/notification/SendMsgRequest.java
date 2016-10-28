@@ -1,6 +1,8 @@
-package com.stc.firebase.android.chat.model;
+package com.stc.firebase.android.chat.notification;
 
 import com.google.gson.annotations.SerializedName;
+import com.stc.firebase.android.chat.model.Data;
+import com.stc.firebase.android.chat.model.Notification;
 
 /**
  * Created by artem on 10/26/16.

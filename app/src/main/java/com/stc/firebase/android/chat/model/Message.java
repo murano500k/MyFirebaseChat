@@ -6,7 +6,7 @@ import android.util.Log;
  * Created by artem on 10/27/16.
  */
 
-public class ChatMessage {
+public class Message {
 	private String recieverId;
 	private String senderId;
 	private String text;
@@ -30,7 +30,7 @@ public class ChatMessage {
 		return timestamp;
 	}
 
-	public ChatMessage(String messageId, String senderId, String recieverId, String text, long timestamp) {
+	public Message(String messageId, String senderId, String recieverId, String text, long timestamp) {
 		this.recieverId = recieverId;
 		this.senderId = senderId;
 		this.text = text;
@@ -42,7 +42,7 @@ public class ChatMessage {
 		return messageId;
 	}
 
-	public ChatMessage() {
+	public Message() {
 
 	}
 

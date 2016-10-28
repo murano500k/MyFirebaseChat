@@ -1,4 +1,4 @@
-package com.stc.firebase.android.chat;
+package com.stc.firebase.android.chat.notification;
 
 import android.util.Log;
 
@@ -6,8 +6,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.stc.firebase.android.chat.model.Data;
 import com.stc.firebase.android.chat.model.Notification;
-import com.stc.firebase.android.chat.model.SendMsgRequest;
-import com.stc.firebase.android.chat.model.SendMsgResponce;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -66,9 +64,42 @@ public class NotificationSender {
 				.addConverterFactory(GsonConverterFactory.create(gson))
 				.build();
 		FcmRetroInterface fcmRetroInterface =retrofit.create(FcmRetroInterface.class);
-		Log.e("TAG", "TOKEN TOSEND "+token);
+		Log.d("TAG", "TOKEN TOSEND "+token);
 		final SendMsgRequest request = new SendMsgRequest(token, new Data("New message"),new Notification("You have new message"));
 
+		Call<SendMsgResponce> call = fcmRetroInterface.send(request);
+		call.enqueue(new Callback<SendMsgResponce>() {
+			@Override
+			public void onResponse(Call<SendMsgResponce> call, Response<SendMsgResponce> response) {
+				if(response.isSuccessful()) {
+					Log.w("RESULT","SUCCESS");
+				}
+				else {
+					Log.e("RESULT", "FAIL");
+				}
+			}
+			@Override
+			public void onFailure(Call<SendMsgResponce> call, Throwable t) {
+				Log.e("RESULT","FAIL");
+			}
+		});
+	}
+
+	public void sendMessage(String token, String messageText, String fromUid, String fromName) {
+		if(gson==null)	gson = new GsonBuilder()
+				.setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
+				.create();
+
+		if(retrofit==null)	retrofit = new Retrofit.Builder()
+				.baseUrl(BASE_URL)
+				.addConverterFactory(GsonConverterFactory.create(gson))
+				.build();
+		FcmRetroInterface fcmRetroInterface =retrofit.create(FcmRetroInterface.class);
+		Log.e("TAG", "TOKEN TOSEND "+token);
+		final SendMsgRequest request = new SendMsgRequest(
+				token,
+				new Data(""+messageText, fromUid, fromName),
+				new Notification("You have new message from "+fromName));
 		Call<SendMsgResponce> call = fcmRetroInterface.send(request);
 		call.enqueue(new Callback<SendMsgResponce>() {
 			@Override

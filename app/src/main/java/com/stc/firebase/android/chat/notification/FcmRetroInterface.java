@@ -1,7 +1,4 @@
-package com.stc.firebase.android.chat;
-
-import com.stc.firebase.android.chat.model.SendMsgRequest;
-import com.stc.firebase.android.chat.model.SendMsgResponce;
+package com.stc.firebase.android.chat.notification;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
