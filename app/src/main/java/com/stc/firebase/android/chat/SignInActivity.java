@@ -16,9 +16,12 @@
 package com.stc.firebase.android.chat;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -37,6 +40,17 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.stc.firebase.android.chat.model.User;
+
+import static com.stc.firebase.android.chat.model.Constants.FIELD_DB_TOKEN;
+import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_TOKEN;
+import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_UID;
+import static com.stc.firebase.android.chat.model.Constants.TABLE_DB_USERS;
 
 public class SignInActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener,
         View.OnClickListener {
@@ -47,11 +61,14 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
 
     private GoogleApiClient mGoogleApiClient;
     private FirebaseAuth mFirebaseAuth;
+	SharedPreferences prefs;
+	private DatabaseReference mFirebaseDatabaseReference;
 
-    @Override
+	@Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sign_in);
+		prefs = PreferenceManager.getDefaultSharedPreferences(this);
 
         // Assign fields
         mSignInButton = (SignInButton) findViewById(R.id.sign_in_button);
@@ -110,6 +127,7 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
                 // Google Sign In was successful, authenticate with Firebase
                 GoogleSignInAccount account = result.getSignInAccount();
                 firebaseAuthWithGoogle(account);
+
             } else {
                 // Google Sign In failed
                 Log.e(TAG, "Google Sign In failed.");
@@ -134,14 +152,77 @@ public class SignInActivity extends AppCompatActivity implements GoogleApiClient
                             Toast.makeText(SignInActivity.this, "Authentication failed.",
                                     Toast.LENGTH_SHORT).show();
                         } else {
-                            startActivity(new Intent(SignInActivity.this, MainActivity.class));
-                            finish();
+	                        addUserToDb();
+
                         }
                     }
                 });
     }
+	public void addUserToDb(){
+		FirebaseUser firebaseUser = mFirebaseAuth.getCurrentUser();
+		mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
 
-    @Override
+
+		if(firebaseUser!=null && firebaseUser.getEmail()!=null){
+			final String email = firebaseUser.getEmail();
+			mFirebaseDatabaseReference.child(TABLE_DB_USERS).addListenerForSingleValueEvent(new ValueEventListener() {
+				@Override
+				public void onDataChange(DataSnapshot dataSnapshot) {
+					User user;
+					boolean exists=false;
+					String key=null;
+
+					for(DataSnapshot child : dataSnapshot.getChildren()){
+						user = child.getValue(User.class);
+						if(TextUtils.equals(user.getEmail(), email)) {
+							exists=true;
+							key=child.getKey();
+							break;
+						}
+					}
+					if(!exists) {
+						createUser();
+					}else
+						saveUidToPrefs(key);
+				}
+
+				@Override
+				public void onCancelled(DatabaseError databaseError) {
+
+				}
+			});
+		}
+
+
+
+	}
+	private void saveUidToPrefs(String uId) {
+
+		Log.w("TAG", "new uid to save: "+uId);
+		prefs.edit().putString(SETTINGS_DB_UID, uId).commit();
+		if(prefs.getString(SETTINGS_DB_TOKEN, null)!=null) {
+			Log.w("TAG", "SETTINGS_DB_TOKEN: "+prefs.getString(SETTINGS_DB_TOKEN, null));
+			mFirebaseDatabaseReference.child(TABLE_DB_USERS).child(uId).child(FIELD_DB_TOKEN).setValue(prefs.getString(SETTINGS_DB_TOKEN, null));
+		}else Log.e("SignIn", "TOKEN NOT FOUND");
+		startActivity(new Intent(SignInActivity.this, MainActivity.class));
+		finish();
+	}
+
+	private void createUser() {
+		FirebaseUser firebaseUser = mFirebaseAuth.getCurrentUser();
+		String photoUrl="";
+		if(firebaseUser!=null && firebaseUser.getPhotoUrl()!=null)
+			photoUrl=firebaseUser.getPhotoUrl().toString();
+		String key=mFirebaseDatabaseReference.child(TABLE_DB_USERS).push().getKey();
+
+
+		User user=new User(key,firebaseUser.getDisplayName(), photoUrl,firebaseUser.getEmail());
+		mFirebaseDatabaseReference.child(TABLE_DB_USERS).child(key).setValue(user);
+		saveUidToPrefs(key);
+	}
+
+
+	@Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
         // An unresolvable error has occurred and Google APIs (including Sign-In) will not
         // be available.

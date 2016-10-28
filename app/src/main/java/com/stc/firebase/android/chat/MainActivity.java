@@ -59,6 +59,11 @@ import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
+import static com.stc.firebase.android.chat.model.Constants.FIELD_DB_TOKEN;
+import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_TOKEN;
+import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_UID;
+import static com.stc.firebase.android.chat.model.Constants.TABLE_DB_USERS;
+
 public class MainActivity extends AppCompatActivity implements
         GoogleApiClient.OnConnectionFailedListener {
 
@@ -76,7 +81,9 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     private static final String TAG = "MainActivity";
-    public static final String MESSAGES_CHILD = "messages";
+    public static final String MESSAGES_CHILD = "friendly_messages";
+	public static final String USERS_CHILD = "users";
+
     private static final int REQUEST_INVITE = 1;
     public static final int DEFAULT_MSG_LENGTH_LIMIT = 10;
     public static final String ANONYMOUS = "anonymous";
@@ -104,6 +111,7 @@ public class MainActivity extends AppCompatActivity implements
         setContentView(R.layout.activity_main);
 
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+
         mUsername = ANONYMOUS;
 
         // Initialize Firebase Auth
@@ -131,7 +139,18 @@ public class MainActivity extends AppCompatActivity implements
         mLinearLayoutManager.setStackFromEnd(true);
 
         mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
-        mFirebaseAdapter = new FirebaseRecyclerAdapter<FriendlyMessage, MessageViewHolder>(
+	    if( mSharedPreferences.getString(SETTINGS_DB_UID, null)!=null){
+		    if(mSharedPreferences.getString(SETTINGS_DB_TOKEN, null)!=null){
+			    Log.w("SAVE SUCCESS", "SAVE SUCCESS");
+			    mFirebaseDatabaseReference
+					    .child(TABLE_DB_USERS)
+					    .child(mSharedPreferences.getString(SETTINGS_DB_UID,null))
+					    .child(FIELD_DB_TOKEN)
+					    .setValue(mSharedPreferences.getString(SETTINGS_DB_TOKEN, null));
+		    }else Log.e("SAVE ERROR", " token null");
+	    }else Log.e("SAVE ERROR", "uid null");
+
+	    mFirebaseAdapter = new FirebaseRecyclerAdapter<FriendlyMessage, MessageViewHolder>(
                         FriendlyMessage.class,
                         R.layout.item_message,
                         MessageViewHolder.class,
@@ -279,12 +298,21 @@ public class MainActivity extends AppCompatActivity implements
             case R.id.fresh_config_menu:
                 fetchConfig();
                 return true;
+	        case R.id.users:
+		        startUsersActivity();
+		        return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
 
-    private void causeCrash() {
+	private void startUsersActivity() {
+		Intent intent;
+		intent=new Intent(this, ScrollingActivity.class);
+		startActivity(intent);
+	}
+
+	private void causeCrash() {
         throw new NullPointerException("Fake null pointer exception");
     }
 

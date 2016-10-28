@@ -15,28 +15,51 @@
  */
 package com.stc.firebase.android.chat;
 
+import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.FirebaseInstanceIdService;
 import com.google.firebase.messaging.FirebaseMessaging;
+
+import static com.stc.firebase.android.chat.model.Constants.FIELD_DB_TOKEN;
+import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_TOKEN;
+import static com.stc.firebase.android.chat.model.Constants.SETTINGS_DB_UID;
+import static com.stc.firebase.android.chat.model.Constants.TABLE_DB_USERS;
 
 public class MyFirebaseInstanceIdService extends FirebaseInstanceIdService {
 
     private static final String TAG = "MyFirebaseIIDService";
     private static final String FRIENDLY_ENGAGE_TOPIC = "friendly_engage";
+	private SharedPreferences mSharedPreferences;
+
+
 
     /**
      * The Application's current Instance ID token is no longer valid and thus a new one must be requested.
      */
     @Override
     public void onTokenRefresh() {
+	    mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         // If you need to handle the generation of a token, initially or after a refresh this is
         // where you should do that.
         String token = FirebaseInstanceId.getInstance().getToken();
         Log.d(TAG, "FCM Token: " + token);
+	    mSharedPreferences.edit().putString(SETTINGS_DB_TOKEN, token).apply();
+	    if(mSharedPreferences.getString(SETTINGS_DB_UID,null)!=null){
+		    DatabaseReference databaseReference= FirebaseDatabase.getInstance().getReference();
+		    databaseReference.child(TABLE_DB_USERS).child(mSharedPreferences.getString(SETTINGS_DB_UID,null)).child(FIELD_DB_TOKEN).setValue(token);
+		    Log.e(TAG, "FCM Token: saved" );
 
-        // Once a token is generated, we subscribe to topic.
-        FirebaseMessaging.getInstance().subscribeToTopic(FRIENDLY_ENGAGE_TOPIC);
+	    }else {
+		    Log.e(TAG, "FCM Token: not saved" );
+
+	    }
+
+	    FirebaseMessaging.getInstance().subscribeToTopic(FRIENDLY_ENGAGE_TOPIC);
+
     }
 }
